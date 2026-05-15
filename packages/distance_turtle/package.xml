@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>square_turtle_pkg</name>
+  <name>distance_turtle</name>
   <version>0.0.0</version>
-  <description>The square_turtle_pkg package</description>
+  <description>The distance_turtle package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
