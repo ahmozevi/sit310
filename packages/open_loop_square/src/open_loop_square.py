@@ -36,39 +36,43 @@ class Drive_Square:
     def run(self):
     	rospy.spin() # keeps node from exiting until node has shutdown
 
-    # Robot drives in a square and then stops
-
+    # Robot drives around the loop map using open-loop timing and then stops
     def move_robot(self):
 
-        #YOUR CODE GOES HERE#
+        straight_speed = 0.30
+        straight_time = 3.9
+
+        turn_speed = 1.5
+        turn_time = 1.05
 
         for i in range(4):
 
-            # Move forward for one side of the square
+            # Move forward along one side of the loop
             self.cmd_msg.header.stamp = rospy.Time.now()
-            self.cmd_msg.v = 0.5
+            self.cmd_msg.v = straight_speed
             self.cmd_msg.omega = 0.0
             self.pub.publish(self.cmd_msg)
-            rospy.loginfo("Moving forward")
-            rospy.sleep(2.0)
+            rospy.loginfo("Side %d: moving forward", i + 1)
+            rospy.sleep(straight_time)
 
-            # Stop briefly
+            # Stop briefly before turning
             self.stop_robot()
             rospy.sleep(0.5)
 
             # Turn approximately 90 degrees
             self.cmd_msg.header.stamp = rospy.Time.now()
             self.cmd_msg.v = 0.0
-            self.cmd_msg.omega = 2.5
+            self.cmd_msg.omega = turn_speed
             self.pub.publish(self.cmd_msg)
-            rospy.loginfo("Turning")
-            rospy.sleep(1.0)
+            rospy.loginfo("Corner %d: turning", i + 1)
+            rospy.sleep(turn_time)
 
-            # Stop briefly
+            # Stop briefly after turning
             self.stop_robot()
             rospy.sleep(0.5)
 
-        # Stop after completing the square
+        # Stop after completing one full lap
+        rospy.loginfo("Finished one full open-loop lap")
         self.stop_robot()
 
 if __name__ == '__main__':
