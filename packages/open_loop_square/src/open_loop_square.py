@@ -1,60 +1,79 @@
 #!/usr/bin/env python3
 
 import rospy
-import time
-from duckietown_msgs.msg import WheelsCmdStamped
-
-
-class OpenLoopSquare:
+from duckietown_msgs.msg import Twist2DStamped
+from duckietown_msgs.msg import FSMState
+ 
+class Drive_Square:
     def __init__(self):
-        rospy.init_node("open_loop_square_node", anonymous=True)
+        #Initialize global class variables
+        self.cmd_msg = Twist2DStamped()
 
-        self.pub = rospy.Publisher(
-            "/deakinbot/wheels_driver_node/wheels_cmd",
-            WheelsCmdStamped,
-            queue_size=1
-        )
+        #Initialize ROS node
+        rospy.init_node('drive_square_node', anonymous=True)
+        
+        #Initialize Pub/Subs
+        self.pub = rospy.Publisher('/deakinbot/car_cmd_switch_node/cmd', Twist2DStamped, queue_size=1)
+        rospy.Subscriber('/deakinbot/fsm_node/mode', FSMState, self.fsm_callback, queue_size=1)
+        
+    # robot only moves when lane following is selected on the duckiebot joystick app
+    def fsm_callback(self, msg):
+        rospy.loginfo("State: %s", msg.state)
+        if msg.state == "NORMAL_JOYSTICK_CONTROL":
+            self.stop_robot()
+        elif msg.state == "LANE_FOLLOWING":            
+            rospy.sleep(1) # Wait for a sec for the node to be ready
+            self.move_robot()
+ 
+    # Sends zero velocities to stop the robot
+    def stop_robot(self):
+        self.cmd_msg.header.stamp = rospy.Time.now()
+        self.cmd_msg.v = 0.0
+        self.cmd_msg.omega = 0.0
+        self.pub.publish(self.cmd_msg)
+ 
+    # Spin forever but listen to message callbacks
+    def run(self):
+    	rospy.spin() # keeps node from exiting until node has shutdown
 
-        rospy.sleep(2)
+    # Robot drives in a square and then stops
 
-    def set_wheels(self, left, right, duration):
-        msg = WheelsCmdStamped()
-        msg.vel_left = left
-        msg.vel_right = right
+    def move_robot(self):
 
-        start_time = time.time()
+        #YOUR CODE GOES HERE#
 
-        while time.time() - start_time < duration and not rospy.is_shutdown():
-            msg.header.stamp = rospy.Time.now()
-            self.pub.publish(msg)
-            rospy.sleep(0.1)
+        for i in range(4):
 
-    def stop(self):
-        self.set_wheels(0.0, 0.0, 1.0)
-
-    def run_square(self):
-        forward_time = 2.0
-        turn_time = 1.0
-
-        forward_speed = 0.3
-        turn_speed = 0.25
-
-        rospy.loginfo("Starting open loop square movement")
-
-        for side in range(4):
+            # Move forward for one side of the square
+            self.cmd_msg.header.stamp = rospy.Time.now()
+            self.cmd_msg.v = 0.5
+            self.cmd_msg.omega = 0.0
+            self.pub.publish(self.cmd_msg)
             rospy.loginfo("Moving forward")
-            self.set_wheels(forward_speed, forward_speed, forward_time)
+            rospy.sleep(2.0)
 
-            rospy.loginfo("Turning left")
-            self.set_wheels(-turn_speed, turn_speed, turn_time)
+            # Stop briefly
+            self.stop_robot()
+            rospy.sleep(0.5)
 
-        self.stop()
-        rospy.loginfo("Open loop square movement finished")
+            # Turn approximately 90 degrees
+            self.cmd_msg.header.stamp = rospy.Time.now()
+            self.cmd_msg.v = 0.0
+            self.cmd_msg.omega = 2.5
+            self.pub.publish(self.cmd_msg)
+            rospy.loginfo("Turning")
+            rospy.sleep(1.0)
 
+            # Stop briefly
+            self.stop_robot()
+            rospy.sleep(0.5)
 
-if __name__ == "__main__":
+        # Stop after completing the square
+        self.stop_robot()
+
+if __name__ == '__main__':
     try:
-        controller = OpenLoopSquare()
-        controller.run_square()
+        duckiebot_movement = Drive_Square()
+        duckiebot_movement.run()
     except rospy.ROSInterruptException:
         pass
