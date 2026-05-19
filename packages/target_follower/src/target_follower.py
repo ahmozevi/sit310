@@ -15,8 +15,8 @@ class Target_Follower:
         rospy.on_shutdown(self.clean_shutdown)
         
         ###### Init Pub/Subs. REMEMBER TO REPLACE "akandb" WITH YOUR ROBOT'S NAME #####
-        self.cmd_vel_pub = rospy.Publisher('/akandb/car_cmd_switch_node/cmd', Twist2DStamped, queue_size=1)
-        rospy.Subscriber('/akandb/apriltag_detector_node/detections', AprilTagDetectionArray, self.tag_callback, queue_size=1)
+        self.cmd_vel_pub = rospy.Publisher('/deakinbot/car_cmd_switch_node/cmd', Twist2DStamped, queue_size=1)
+        rospy.Subscriber('/deakinbot/apriltag_detector_node/detections', AprilTagDetectionArray, self.tag_callback, queue_size=1)
         ################################################################
 
         rospy.spin() # Spin forever but listen to message callbacks
@@ -42,21 +42,45 @@ class Target_Follower:
 
         #### YOUR CODE GOES HERE ####
 
+        # Create velocity command message
+        cmd_msg = Twist2DStamped()
+        cmd_msg.header.stamp = rospy.Time.now()
+
+        # The task requires in-place rotation only, so linear velocity is always zero
+        cmd_msg.v = 0.0
+
+        # Feature 1: Seek an object
+        # If no AprilTag is detected, rotate slowly to search for a target
         if len(detections) == 0:
+            rospy.loginfo("No tag detected: seeking object")
+            cmd_msg.omega = 1.0
+            self.cmd_vel_pub.publish(cmd_msg)
             return
 
+        # Feature 2: Look at the object
+        # Use the first detected AprilTag as the target
         x = detections[0].transform.translation.x
         y = detections[0].transform.translation.y
         z = detections[0].transform.translation.z
 
-        rospy.loginfo("x,y,z: %f %f %f", x, y, z)
+        rospy.loginfo("Tag detected x,y,z: %f %f %f", x, y, z)
 
+        # If x is positive, the tag is on one side of the robot camera.
+        # If x is negative, the tag is on the other side.
+        # The dead zone prevents the robot from shaking when the tag is almost centred.
+        dead_zone = 0.05
+        turn_speed = 1.0
 
-        # Publish a velocity
-        cmd_msg = Twist2DStamped()
-        cmd_msg.header.stamp = rospy.Time.now()
-        cmd_msg.v = 0.0
-        cmd_msg.omega = 0.0
+        if x > dead_zone:
+            rospy.loginfo("Tag is to the right: turning right")
+            cmd_msg.omega = -turn_speed
+        elif x < -dead_zone:
+            rospy.loginfo("Tag is to the left: turning left")
+            cmd_msg.omega = turn_speed
+        else:
+            rospy.loginfo("Tag is centred: stopping rotation")
+            cmd_msg.omega = 0.0
+
         self.cmd_vel_pub.publish(cmd_msg)
 
         #############################
